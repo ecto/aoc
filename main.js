@@ -42,6 +42,9 @@ function init () {
   document.body.appendChild(game.renderer.domElement);
 
   $(game.renderer.domElement).mousemove(mouseMove);
+  $(game.renderer.domElement).click(function () {
+    sphere.inception = +new Date();
+  });
 }
 
 function addGround () {
@@ -66,12 +69,20 @@ function addSphere () {
 
   sphere = new THREE.Mesh(geometry, material);
   sphere.mass = 100;
+  sphere.inception = +new Date();
+
   game.scene.add(sphere);
 }
 
 function animate () {
   requestAnimationFrame(animate);
   calculateGravity();
+
+  var t = (+new Date() - sphere.inception) / 500;
+  var offset = ((Math.pow(Math.E, -t)) * Math.cos(2 * Math.PI * t));
+  sphere.position.y = -offset * 100;
+  sphere.mass = offset * 150 + 100;
+
   game.renderer.render(game.scene, game.camera);
 }
 
