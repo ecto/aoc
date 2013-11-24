@@ -1,23 +1,30 @@
 var THREE = require('three');
 var $ = require('jquery-browserify');
 
-var stats = new Stats();
-stats.domElement.style.position = 'absolute';
-stats.domElement.style.left = '0px';
-stats.domElement.style.top = '0px';
 
-document.body.appendChild( stats.domElement );
 
 var intendedCameraPosition = new THREE.Vector3(0, 400, 400);
 var game = {};
 var plane, sphere;
+var stats;
 
-init();
-addGround();
-addSphere();
-animate();
+$(document).ready(function () {
+  initStats();
+  initScene();
+  addGround();
+  addSphere();
+  animate();
+});
 
-function init () {
+function initStats () {
+  stats = new Stats();
+  stats.domElement.style.position = 'absolute';
+  stats.domElement.style.left = '0px';
+  stats.domElement.style.top = '0px';
+  document.body.appendChild(stats.domElement);
+}
+
+function initScene () {
   game.camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 10000);
   game.camera.position = intendedCameraPosition;
   game.camera.rotation.x = -0.8;
