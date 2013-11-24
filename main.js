@@ -1,6 +1,13 @@
 var THREE = require('three');
 var $ = require('jquery-browserify');
 
+var stats = new Stats();
+stats.domElement.style.position = 'absolute';
+stats.domElement.style.left = '0px';
+stats.domElement.style.top = '0px';
+
+document.body.appendChild( stats.domElement );
+
 var intendedCameraPosition = new THREE.Vector3(0, 400, 400);
 var game = {};
 var plane, sphere;
@@ -75,6 +82,7 @@ function addSphere () {
 }
 
 function animate () {
+  stats.begin();
   requestAnimationFrame(animate);
   calculateGravity();
 
@@ -84,6 +92,7 @@ function animate () {
   sphere.mass = offset * 150 + 100;
 
   game.renderer.render(game.scene, game.camera);
+  stats.end();
 }
 
 var G = 100;
@@ -114,5 +123,4 @@ function mouseMove (e) {
   var distance = -game.camera.position.y / dir.y;
   var pos = game.camera.position.clone().add(dir.multiplyScalar(distance));
   sphere.position = pos;
-  //calculateGravity();
 }
