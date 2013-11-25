@@ -1,18 +1,26 @@
 var THREE = require('three');
 var $ = require('jquery-browserify');
 
-
-
-var intendedCameraPosition = new THREE.Vector3(0, 400, 400);
+var fieldSize = 1000;
+var intendedCameraPosition = new THREE.Vector3(0, 200, 200);
 var game = {};
-var plane, sphere;
+var spheres = [];
+var plane, player;
 var stats;
+
+var keys = {};
+$(window).keydown(function (e) {
+  keys[e.which] = true;
+}).keyup(function (e) {
+  keys[e.which] = false;
+});
 
 $(document).ready(function () {
   initStats();
   initScene();
   addGround();
-  addSphere();
+  addSpheres();
+  addPlayer();
   animate();
 });
 
@@ -55,14 +63,14 @@ function initScene () {
   game.renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(game.renderer.domElement);
 
-  $(game.renderer.domElement).mousemove(mouseMove);
+  //$(game.renderer.domElement).mousemove(mouseMove);
   $(game.renderer.domElement).click(function () {
-    sphere.inception = +new Date();
+    player.inception = +new Date();
   });
 }
 
 function addGround () {
-  var geometry = new THREE.PlaneGeometry(1000, 1000, 200, 200);
+  var geometry = new THREE.PlaneGeometry(fieldSize, fieldSize, fieldSize / 4, fieldSize / 4);
   var material = new THREE.MeshPhongMaterial({
     color: 0xffffff,
     opacity: 0.2,
@@ -75,46 +83,141 @@ function addGround () {
   game.scene.add(plane);
 }
 
-function addSphere () {
-  var geometry = new THREE.SphereGeometry(10, 10);
+function addPlayer () {
+  var mass = 10;
+  var density = 1;
+  var size = mass / density;
+
+  var geometry = new THREE.SphereGeometry(size, size);
   var material = new THREE.MeshLambertMaterial({
-    color: 0xffff00,
+    color: 0xffff00
   });
 
-  sphere = new THREE.Mesh(geometry, material);
-  sphere.mass = 100;
-  sphere.inception = +new Date();
+  player = new THREE.Mesh(geometry, material);
+  player.mass = 100;
+  player.density = 2;
+  player.inception = +new Date();
+  player.velocity = new THREE.Vector3();
+  player.acceleration = new THREE.Vector3();
 
-  game.scene.add(sphere);
+  spheres.push(player);
+  game.scene.add(player);
+}
+
+function addSpheres () {
+  var limit = 20;
+
+  for (var i = 0; i < limit; i++) {
+    var mass = Math.ceil(Math.random() * 20);
+    var density = 5;
+    var size = mass / density;
+
+    var geometry = new THREE.SphereGeometry(size, size * 10);
+    var material = new THREE.MeshLambertMaterial({
+      color: parseInt((0x1000000 + (Math.random()) * 0xffffff).toString(16).substr(1, 6), 16)
+    });
+
+    var sphere = new THREE.Mesh(geometry, material);
+    sphere.position.x = (Math.random() * fieldSize) - (fieldSize / 2);
+    sphere.position.z = (Math.random() * fieldSize) - (fieldSize / 2);
+    sphere.velocity = new THREE.Vector3();
+    sphere.acceleration = new THREE.Vector3();
+    sphere.mass = mass;
+    sphere.inception = +new Date();
+
+    spheres.push(sphere);
+    game.scene.add(sphere);
+  }
 }
 
 function animate () {
   stats.begin();
   requestAnimationFrame(animate);
+  handleKeypresses();
+  doBounce();
   calculateGravity();
-
-  var t = (+new Date() - sphere.inception) / 500;
-  var offset = ((Math.pow(Math.E, -t)) * Math.cos(2 * Math.PI * t));
-  sphere.position.y = -offset * 100;
-  sphere.mass = offset * 150 + 100;
-
+  doGravity();
+  moveSpheres();
+  moveCamera();
   game.renderer.render(game.scene, game.camera);
   stats.end();
 }
 
-var G = 100;
+function doBounce () {
+  var i = 0;
+  var t = (+new Date() - spheres[i].inception) / 500;
+  var offset = ((Math.pow(Math.E, -t)) * Math.cos(2 * Math.PI * t));
+  spheres[i].position.y = -offset * 100;
+  spheres[i].mass = offset * 150 + 100;
+}
+
+function handleKeypresses () {
+  var scale = 0.05;
+
+  if (keys[87]) {
+    // up
+    player.velocity.z -= scale;
+  }
+
+  if (keys[65]) {
+    // left
+    player.velocity.x -= scale;
+  }
+
+  if (keys[83]) {
+    // down
+    player.velocity.z += scale;
+  }
+
+  if (keys[68]) {
+    // right
+    player.velocity.x += scale;
+  }
+}
+
+var G = 6.7;
 function calculateGravity () {
   var vertex;
   // force = gc * ((m1 * m2) / distance^2)
 
   for (var i = 0; i < plane.geometry.vertices.length; i++) {
     vertex = plane.geometry.vertices[i];
-    var distance = Math.sqrt(Math.pow(vertex.x - sphere.position.x, 2) + Math.pow(vertex.y - -sphere.position.z, 2));
-    var f = -(G * sphere.mass) / Math.pow(distance, 2);
-    vertex.z = f;
+    var sum = 0;
+
+    for (var j = 0; j < spheres.length; j++) {
+      var distance = Math.sqrt(Math.pow(vertex.x - spheres[j].position.x, 2) + Math.pow(vertex.y - -spheres[j].position.z, 2));
+      var f = -(G * spheres[j].mass * 100) / Math.pow(distance, 2);
+      sum += f;
+    }
+
+    vertex.z = sum;
   }
 
   plane.geometry.verticesNeedUpdate = true;
+}
+
+function doGravity () {
+  for (var i = 0; i < spheres.length; i++) {
+    for (var j = 0; j < spheres.length; j++) {
+      if (spheres[i].position.equals(spheres[j].position)) continue;
+      var distance = spheres[i].position.clone().sub(spheres[j].position.clone());
+      var f = ((-G * spheres[j].mass) / distance.lengthSq());
+      var acc = distance.normalize().multiplyScalar(f / spheres[i].mass);
+      spheres[i].acceleration = acc;
+    }
+  }
+}
+
+function moveSpheres () {
+  for (var i = 0; i < spheres.length; i++) {
+    spheres[i].position.add(spheres[i].velocity);
+    spheres[i].velocity.add(spheres[i].acceleration);
+  }
+}
+
+function moveCamera () {
+  game.camera.position.x = player.position.x;
+  game.camera.position.z = player.position.z + 200;
 }
 
 var projector = new THREE.Projector();
@@ -129,5 +232,5 @@ function mouseMove (e) {
   var dir = vector.sub(game.camera.position).normalize();
   var distance = -game.camera.position.y / dir.y;
   var pos = game.camera.position.clone().add(dir.multiplyScalar(distance));
-  sphere.position = pos;
+  player.position = pos;
 }
